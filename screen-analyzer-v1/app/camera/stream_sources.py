@@ -1,12 +1,27 @@
-﻿from __future__ import annotations
+from __future__ import annotations
+
+from urllib.parse import urlparse
 
 
-def parse_camera_source(raw: str) -> int | str:
-    """
-    Turns '0' into integer device index 0.
-    Leaves URLs or other strings unchanged.
-    """
-    raw = raw.strip()
-    if raw.isdigit():
-        return int(raw)
-    return raw
+def is_url_source(value: str) -> bool:
+    parsed = urlparse(value)
+    return parsed.scheme in {"http", "https", "rtsp", "rtmp"} and bool(parsed.netloc)
+
+
+def parse_camera_source(raw: str | int) -> int | str:
+    """Accept either webcam index (int-like) or stream URL."""
+    if isinstance(raw, int):
+        return raw
+
+    text = str(raw).strip()
+    if text == "":
+        raise ValueError("Camera source cannot be empty")
+
+    if text.isdigit() or (text.startswith("-") and text[1:].isdigit()):
+        return int(text)
+
+    if is_url_source(text):
+        return text
+
+    # fall back to raw string for local paths/device aliases supported by OpenCV
+    return text

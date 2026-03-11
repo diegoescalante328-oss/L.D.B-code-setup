@@ -3,172 +3,189 @@ from __future__ import annotations
 import threading
 import time
 from pathlib import Path
-from typing import Optional
-
-import cv2
+from typing import Any
 
 from app.analysis.openai_client import OpenAIAnalysisClient
 from app.analysis.parser import validate_analysis_payload
+from app.analysis.prompt_builder import load_system_prompt
 from app.analysis.scene_change import is_meaningfully_different
-from app.camera.frame_utils import save_frame, utc_timestamp
+from app.camera.capture import CameraCapture
+from app.camera.frame_utils import crop_frame, save_frame, utc_timestamp
+from app.camera.stream_sources import parse_camera_source
+from app.queue_policy import LatestFrameBuffer
 from app.storage.logs import append_jsonl
 
 
 class Coordinator:
-    """
-    Core runtime loop for Screen Analyzer.
-
-    Responsibilities:
-    - open camera
-    - capture frames every N seconds
-    - skip near-identical frames
-    - enforce one in-flight request
-    - latest-frame-wins buffering
-    - update UI
-    - write logs
-    """
-
-    def __init__(
-        self,
-        dashboard,
-        camera_source=0,
-        capture_interval=3,
-        snapshot_dir="outputs/snapshots",
-        log_file="logs/runtime.jsonl",
-    ):
+    def __init__(self, dashboard, settings: dict[str, Any], schema_path: str = "schemas/screen_analysis.schema.json") -> None:
         self.dashboard = dashboard
-        self.camera_source = camera_source
-        self.capture_interval = capture_interval
+        self.settings = settings
+        self.schema_path = schema_path
 
-        self.snapshot_dir = Path(snapshot_dir)
-        self.log_file = Path(log_file)
+        camera_cfg = settings["camera"]
+        capture_cfg = settings["capture"]
+        app_cfg = settings["app"]
+        recovery_cfg = settings["recovery"]
+        analysis_cfg = settings["analysis"]
 
-        self.analysis_client = OpenAIAnalysisClient()
+        self.capture_interval = float(capture_cfg["interval_seconds"])
+        self.skip_similar = bool(capture_cfg.get("skip_similar_frames", True))
 
-        self.cap = None
+        self.snapshot_dir = Path(app_cfg["snapshot_dir"]) / "snapshots"
+        self.log_file = Path(app_cfg["log_dir"]) / "runtime.jsonl"
+
+        self.camera = CameraCapture(
+            source=parse_camera_source(camera_cfg["source"]),
+            startup_timeout_seconds=int(camera_cfg.get("startup_timeout_seconds", 30)),
+            reconnect_delay_seconds=int(recovery_cfg.get("reconnect_delay_seconds", 3)),
+        )
+
+        self.analysis_client = OpenAIAnalysisClient(
+            model=analysis_cfg.get("model", "gpt-5.4"),
+            schema_path=schema_path,
+            image_detail=analysis_cfg.get("image_detail", "original"),
+            enable_web_search_second_pass=analysis_cfg.get("enable_web_search_second_pass", True),
+        )
+        self.system_prompt = load_system_prompt()
 
         self.running = False
-
+        self.capture_thread: threading.Thread | None = None
+        self.buffer = LatestFrameBuffer()
         self.last_frame = None
-        self.pending_frame = None
+        self.last_result_at = 0.0
+        self.cycle_counter = 0
+        self.state_lock = threading.Lock()
 
-        self.analysis_in_flight = False
-
-        self.lock = threading.Lock()
-
-    def start(self):
-        self.dashboard.set_status("Connecting camera")
-
-        self.cap = cv2.VideoCapture(self.camera_source)
-
-        if not self.cap.isOpened():
-            raise RuntimeError("Camera could not be opened")
+    def start(self) -> None:
+        self.dashboard.set_status("connecting")
+        status = self.camera.connect()
+        if not status.connected:
+            self.dashboard.set_error(status.message)
+            raise RuntimeError(status.message)
 
         self.running = True
+        self.dashboard.set_status("connected")
+        self.capture_thread = threading.Thread(target=self._capture_loop, daemon=True)
+        self.capture_thread.start()
 
-        self.dashboard.set_status("Running")
+    def stop(self) -> None:
+        self.running = False
+        self.camera.release()
 
-        thread = threading.Thread(target=self.loop, daemon=True)
-        thread.start()
-
-    def loop(self):
-
+    def _capture_loop(self) -> None:
         while self.running:
+            cycle_start = time.time()
+            self.cycle_counter += 1
+            cycle_id = self.cycle_counter
+            capture_ts = utc_timestamp()
 
-            start = time.time()
-
-            ok, frame = self.cap.read()
-
-            if not ok:
-                self.dashboard.set_status("Camera read failure")
-                time.sleep(1)
+            ok, frame = self.camera.read()
+            if not ok or frame is None:
+                self.dashboard.set_error("camera read failure; reconnecting")
+                append_jsonl(self.log_file, {
+                    "event": "capture",
+                    "cycle_id": cycle_id,
+                    "capture_timestamp": capture_ts,
+                    "status": "camera_read_failure",
+                })
+                reconnect_status = self.camera.reconnect()
+                if reconnect_status.connected:
+                    self.dashboard.set_status("connected")
+                else:
+                    self.dashboard.set_error(reconnect_status.message)
                 continue
 
-            if self.last_frame is not None:
-                if not is_meaningfully_different(self.last_frame, frame):
-                    time.sleep(self.capture_interval)
-                    continue
+            crop_cfg = self.settings.get("crop")
+            if crop_cfg and crop_cfg.get("enabled"):
+                frame = crop_frame(frame, crop_cfg["x"], crop_cfg["y"], crop_cfg["w"], crop_cfg["h"])
+
+            self.dashboard.update_feed(frame)
+
+            stale_after = int(self.settings["ui"].get("stale_after_seconds", 15))
+            if self.last_result_at and (time.time() - self.last_result_at > stale_after):
+                self.dashboard.set_status("stale")
+
+            if self.skip_similar and self.last_frame is not None and not is_meaningfully_different(self.last_frame, frame):
+                append_jsonl(self.log_file, {
+                    "event": "capture",
+                    "cycle_id": cycle_id,
+                    "capture_timestamp": capture_ts,
+                    "status": "skipped_similar",
+                })
+                self._sleep_until_next(cycle_start)
+                continue
 
             self.last_frame = frame
+            frame_path = str(save_frame(frame, self.snapshot_dir))
+            append_jsonl(self.log_file, {
+                "event": "capture",
+                "cycle_id": cycle_id,
+                "capture_timestamp": capture_ts,
+                "frame_path": frame_path,
+                "status": "captured",
+            })
+            self._enqueue_for_analysis(frame_path, capture_ts, cycle_id)
+            self._sleep_until_next(cycle_start)
 
-            frame_path = save_frame(frame, self.snapshot_dir)
+    def _enqueue_for_analysis(self, frame_path: str, capture_ts: str, cycle_id: int) -> None:
+        with self.state_lock:
+            should_start, _ = self.buffer.enqueue(frame_path)
+            if not should_start:
+                append_jsonl(self.log_file, {
+                    "event": "analysis_enqueue",
+                    "cycle_id": cycle_id,
+                    "frame_path": frame_path,
+                    "capture_timestamp": capture_ts,
+                    "status": "pending_overwrite",
+                })
+                return
+            threading.Thread(target=self._run_analysis, args=(frame_path, capture_ts, cycle_id), daemon=True).start()
 
-            with self.lock:
-
-                if self.analysis_in_flight:
-                    # latest frame wins
-                    self.pending_frame = frame_path
-                else:
-                    self.analysis_in_flight = True
-                    threading.Thread(
-                        target=self.run_analysis,
-                        args=(frame_path,),
-                        daemon=True,
-                    ).start()
-
-            elapsed = time.time() - start
-
-            sleep_time = max(0, self.capture_interval - elapsed)
-            time.sleep(sleep_time)
-
-    def run_analysis(self, frame_path):
-
-        timestamp = utc_timestamp()
-
+    def _run_analysis(self, frame_path: str, capture_ts: str, cycle_id: int) -> None:
+        analysis_start = utc_timestamp()
+        self.dashboard.set_status("analyzing")
         try:
-
-            result = self.analysis_client.analyze_image_with_optional_web_search(
+            payload = self.analysis_client.analyze_image_with_optional_web_search(
                 image_path=frame_path,
-                system_prompt="Analyze the monitor image."
+                system_prompt=self.system_prompt,
             )
-
-            validate_analysis_payload(result, "schemas/screen_analysis.schema.json")
-
-            text = (
-                f"Screen content:\n{result['screen_content']}\n\n"
-                f"Answer:\n{result['main_answer']}\n\n"
-                f"Summary:\n{result['summary']}"
-            )
-
-            self.dashboard.set_result(timestamp, text)
-
-            append_jsonl(
-                self.log_file,
-                {
-                    "timestamp": timestamp,
-                    "frame": str(frame_path),
-                    "status": "success",
-                    "result": result,
-                },
-            )
-
-        except Exception as e:
-
-            self.dashboard.set_status(f"Error: {e}")
-
-            append_jsonl(
-                self.log_file,
-                {
-                    "timestamp": timestamp,
-                    "frame": str(frame_path),
-                    "status": "error",
-                    "error": str(e),
-                },
-            )
-
+            parsed = validate_analysis_payload(payload, self.schema_path)
+            self.last_result_at = time.time()
+            self.dashboard.set_result(timestamp=self.last_result_at, result=parsed, frame_path=frame_path)
+            self.dashboard.set_status("connected")
+            append_jsonl(self.log_file, {
+                "event": "analysis",
+                "cycle_id": cycle_id,
+                "frame_path": frame_path,
+                "capture_timestamp": capture_ts,
+                "analysis_start_timestamp": analysis_start,
+                "analysis_end_timestamp": utc_timestamp(),
+                "status": "success",
+                "parsed_response": parsed,
+            })
+        except Exception as exc:
+            self.dashboard.set_error(str(exc))
+            append_jsonl(self.log_file, {
+                "event": "analysis",
+                "cycle_id": cycle_id,
+                "frame_path": frame_path,
+                "capture_timestamp": capture_ts,
+                "analysis_start_timestamp": analysis_start,
+                "analysis_end_timestamp": utc_timestamp(),
+                "status": "error",
+                "error": str(exc),
+            })
         finally:
+            with self.state_lock:
+                next_frame = self.buffer.complete_and_pop_next()
 
-            with self.lock:
+            if next_frame:
+                threading.Thread(
+                    target=self._run_analysis,
+                    args=(next_frame, utc_timestamp(), cycle_id),
+                    daemon=True,
+                ).start()
 
-                if self.pending_frame is not None:
-                    next_frame = self.pending_frame
-                    self.pending_frame = None
-
-                    threading.Thread(
-                        target=self.run_analysis,
-                        args=(next_frame,),
-                        daemon=True,
-                    ).start()
-
-                else:
-                    self.analysis_in_flight = False
+    def _sleep_until_next(self, cycle_start: float) -> None:
+        elapsed = time.time() - cycle_start
+        time.sleep(max(0.0, self.capture_interval - elapsed))
