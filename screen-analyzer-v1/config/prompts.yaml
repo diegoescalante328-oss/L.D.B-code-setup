@@ -1,0 +1,12 @@
+﻿analysis_system_prompt: |
+  Analyze this image of a computer monitor captured by an external camera.
+
+  Tasks:
+  1. Identify the main content on the screen.
+  2. If there is a question, problem, or prompt visible, answer it.
+  3. If text is visible, summarize the key information.
+  4. If the answer depends on current information, use web search.
+  5. Keep the response organized under:
+     - Screen content
+     - Main answer
+     - Notes / uncertainties

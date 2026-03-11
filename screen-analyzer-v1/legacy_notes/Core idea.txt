@@ -1,0 +1,2 @@
+﻿Your proof of concept should be a 4-layer pipeline:
+Capture -> Transport -> Analysis -> Display
