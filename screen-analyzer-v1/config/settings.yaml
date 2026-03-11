@@ -1,4 +1,4 @@
-﻿app:
+app:
   name: "screen-analyzer-v1"
   log_dir: "logs"
   snapshot_dir: "outputs"
@@ -31,3 +31,10 @@ recovery:
   reconnect_delay_seconds: 3
   transient_outage_window_seconds: 30
   recovery_target_seconds: 15
+
+crop:
+  enabled: false
+  x: 0
+  y: 0
+  w: 1280
+  h: 720

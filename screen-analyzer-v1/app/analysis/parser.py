@@ -1,10 +1,10 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from pathlib import Path
 from typing import Any
 
-from jsonschema import validate
+from jsonschema import ValidationError, validate
 
 
 def load_schema(schema_path: str | Path) -> dict[str, Any]:
@@ -14,7 +14,19 @@ def load_schema(schema_path: str | Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def validate_analysis_payload(payload: dict[str, Any], schema_path: str | Path) -> dict[str, Any]:
+def parse_structured_payload(payload: dict[str, Any] | str) -> dict[str, Any]:
+    if isinstance(payload, dict):
+        return payload
+    if isinstance(payload, str):
+        return json.loads(payload)
+    raise TypeError(f"Unsupported payload type: {type(payload)!r}")
+
+
+def validate_analysis_payload(payload: dict[str, Any] | str, schema_path: str | Path) -> dict[str, Any]:
+    parsed = parse_structured_payload(payload)
     schema = load_schema(schema_path)
-    validate(instance=payload, schema=schema)
-    return payload
+    try:
+        validate(instance=parsed, schema=schema)
+    except ValidationError as exc:
+        raise ValueError(f"Structured output validation failed: {exc.message}") from exc
+    return parsed
