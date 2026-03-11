@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,3 +29,11 @@ def save_frame(frame: np.ndarray, output_dir: str | Path, prefix: str = "frame")
 
 def crop_frame(frame: np.ndarray, x: int, y: int, w: int, h: int) -> np.ndarray:
     return frame[y : y + h, x : x + w]
+
+
+def resize_for_preview(frame: np.ndarray, width: int = 640) -> np.ndarray:
+    h, w = frame.shape[:2]
+    if w <= width:
+        return frame
+    scale = width / float(w)
+    return cv2.resize(frame, (int(w * scale), int(h * scale)))

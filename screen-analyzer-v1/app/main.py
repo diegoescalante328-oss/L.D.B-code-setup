@@ -1,22 +1,24 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+from dotenv import load_dotenv
+
+from app.config import load_settings
 from app.coordinator import Coordinator
 from app.ui.dashboard import Dashboard
 
 
-def main():
+def main() -> None:
+    load_dotenv()
+    settings = load_settings("config/settings.yaml")
 
     dashboard = Dashboard()
-
-    coordinator = Coordinator(
-        dashboard=dashboard,
-        camera_source=0,
-        capture_interval=3,
-    )
-
+    coordinator = Coordinator(dashboard=dashboard, settings=settings)
     coordinator.start()
 
-    dashboard.run()
+    try:
+        dashboard.run()
+    finally:
+        coordinator.stop()
 
 
 if __name__ == "__main__":

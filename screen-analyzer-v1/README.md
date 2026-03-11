@@ -1,27 +1,71 @@
-﻿# Screen Analyzer V1
+# Screen Analyzer V1
 
-Version 1 is a laptop-side app that ingests a live external camera feed of a monitor, captures frames every N seconds, sends selected frames to an OpenAI vision pipeline, and continuously displays the latest useful analysis result without manual triggering.
+Screen Analyzer V1 is a local desktop app that ingests an external camera feed of a monitor, captures frames automatically every few seconds, analyzes selected frames with the OpenAI Responses API (structured JSON), and continuously updates a local Tkinter dashboard.
 
-## V1 defaults
-- Capture interval: 3 seconds
-- Allowed range: 2 to 10 seconds
-- Max in-flight analysis requests: 1
-- Queue policy: latest-frame-wins
-- Minimum unattended runtime target: 60 minutes
+## Implemented V1 behavior
+- Autonomous capture loop (no manual analyze button required)
+- Default capture interval = 3s, bounded to 2..10s by config validation
+- One in-flight analysis request at a time
+- Latest-frame-wins buffering when analysis is busy
+- Optional skip of near-identical frames via simple frame difference
+- UI status + error + latest result + result timestamp + live feed preview
+- JSONL runtime logs for capture/analysis outcomes
+- Camera source supports device index (`0`) or URL (`rtsp://...`, `http://...`)
 
-## Core pipeline
-Camera Device -> Video Feed to Laptop -> Laptop Capture Service -> Frame Sampler -> OpenAI Analysis Service -> Answer / Overlay UI
+## Requirements
+- Python 3.11+
+- OpenCV-compatible camera source (USB webcam index or URL stream)
+- `OPENAI_API_KEY` environment variable
 
-## Manual setup
-1. Create and activate a virtual environment
-2. Install requirements
-3. Copy `.env.example` to `.env`
-4. Put your OpenAI API key in `.env`
-5. Adjust `config/settings.yaml`
-6. Test the camera feed first with `scripts/smoke_capture.py`
-7. Test one saved frame with `scripts/single_frame_analysis.py`
+Install:
 
-## Notes
-- V1 is autonomous timed capture, not manual analyze button driven
-- The camera source may be a device index or an IP stream URL
-- Structured JSON output should be used from the beginning
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Set environment variables:
+
+```bash
+export OPENAI_API_KEY=your_key_here
+```
+
+## Configuration
+Edit `config/settings.yaml`.
+
+Key fields:
+- `camera.source`: `0` (device) or stream URL
+- `capture.interval_seconds`: default `3`
+- `capture.skip_similar_frames`: true/false
+- `analysis.enable_web_search_second_pass`: optional second pass path
+- `ui.stale_after_seconds`: marks status as stale when no fresh result
+
+## Run commands
+### 1) Smoke capture (camera connectivity)
+```bash
+python scripts/smoke_capture.py --source 0 --output-dir outputs/smoke
+```
+Press `s` to save a frame and `q` to quit.
+
+### 2) Single-frame structured analysis
+```bash
+python scripts/single_frame_analysis.py --image outputs/smoke/<your_image>.jpg
+```
+
+### 3) Full desktop app
+```bash
+python -m app.main
+```
+
+## Logs and outputs
+- Saved frames: `outputs/snapshots/`
+- Runtime logs: `logs/runtime.jsonl`
+
+Each analysis record includes frame path, capture timestamp, analysis start/end timestamps, status, and either parsed response or error.
+
+## Known V1 limitations
+- Crop calibration is minimal (optional config scaffold only)
+- No OCR-specific side pipeline
+- No multi-camera orchestration
+- No browser automation or input control features (out of scope)
