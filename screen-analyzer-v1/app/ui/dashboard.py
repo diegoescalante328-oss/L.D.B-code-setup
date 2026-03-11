@@ -9,7 +9,6 @@ import cv2
 from PIL import Image, ImageTk
 
 from app.camera.frame_utils import resize_for_preview
-from app.ui.panels import format_result_payload
 
 
 class Dashboard:
@@ -70,7 +69,17 @@ class Dashboard:
 
     def set_result(self, timestamp: float, result: dict, frame_path: str) -> None:
         ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
-        text = f"Frame: {frame_path}\n{format_result_payload(result)}"
+        text = (
+            f"Frame: {frame_path}\n"
+            f"Screen content: {result['screen_content']}\n\n"
+            f"Question present: {result['question_present']}\n"
+            f"Main answer: {result['main_answer']}\n\n"
+            f"Summary: {result['summary']}\n"
+            f"Readability: {result['readability']}\n"
+            f"Needs web search: {result['needs_web_search']}\n"
+            f"Notes: {', '.join(result['notes']) if result['notes'] else '-'}\n"
+            f"Citations: {', '.join(result['citations']) if result['citations'] else '-'}"
+        )
         self.event_queue.put(("result", (ts, text)))
 
     def _drain_events(self) -> None:

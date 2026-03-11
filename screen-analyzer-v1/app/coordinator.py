@@ -12,8 +12,8 @@ from app.analysis.scene_change import is_meaningfully_different
 from app.camera.capture import CameraCapture
 from app.camera.frame_utils import crop_frame, save_frame, utc_timestamp
 from app.camera.stream_sources import parse_camera_source
-from app.queue_policy import LatestFrameBuffer
 from app.storage.logs import append_jsonl
+from app.queue_policy import LatestFrameBuffer
 
 
 class Coordinator:
@@ -26,7 +26,6 @@ class Coordinator:
         capture_cfg = settings["capture"]
         app_cfg = settings["app"]
         recovery_cfg = settings["recovery"]
-        analysis_cfg = settings["analysis"]
 
         self.capture_interval = float(capture_cfg["interval_seconds"])
         self.skip_similar = bool(capture_cfg.get("skip_similar_frames", True))
@@ -41,10 +40,9 @@ class Coordinator:
         )
 
         self.analysis_client = OpenAIAnalysisClient(
-            model=analysis_cfg.get("model", "gpt-5.4"),
+            model=settings["analysis"].get("model", "gpt-5.4"),
             schema_path=schema_path,
-            image_detail=analysis_cfg.get("image_detail", "original"),
-            enable_web_search_second_pass=analysis_cfg.get("enable_web_search_second_pass", True),
+            image_detail=settings["analysis"].get("image_detail", "original"),
         )
         self.system_prompt = load_system_prompt()
 
@@ -53,7 +51,6 @@ class Coordinator:
         self.buffer = LatestFrameBuffer()
         self.last_frame = None
         self.last_result_at = 0.0
-        self.cycle_counter = 0
         self.state_lock = threading.Lock()
 
     def start(self) -> None:
@@ -64,7 +61,7 @@ class Coordinator:
             raise RuntimeError(status.message)
 
         self.running = True
-        self.dashboard.set_status("connected")
+        self.dashboard.set_status("idle")
         self.capture_thread = threading.Thread(target=self._capture_loop, daemon=True)
         self.capture_thread.start()
 
@@ -75,22 +72,13 @@ class Coordinator:
     def _capture_loop(self) -> None:
         while self.running:
             cycle_start = time.time()
-            self.cycle_counter += 1
-            cycle_id = self.cycle_counter
             capture_ts = utc_timestamp()
-
             ok, frame = self.camera.read()
             if not ok or frame is None:
                 self.dashboard.set_error("camera read failure; reconnecting")
-                append_jsonl(self.log_file, {
-                    "event": "capture",
-                    "cycle_id": cycle_id,
-                    "capture_timestamp": capture_ts,
-                    "status": "camera_read_failure",
-                })
                 reconnect_status = self.camera.reconnect()
                 if reconnect_status.connected:
-                    self.dashboard.set_status("connected")
+                    self.dashboard.set_status("idle")
                 else:
                     self.dashboard.set_error(reconnect_status.message)
                 continue
@@ -107,41 +95,32 @@ class Coordinator:
 
             if self.skip_similar and self.last_frame is not None and not is_meaningfully_different(self.last_frame, frame):
                 append_jsonl(self.log_file, {
-                    "event": "capture",
-                    "cycle_id": cycle_id,
+                    "event": "capture_skip_similar",
                     "capture_timestamp": capture_ts,
-                    "status": "skipped_similar",
+                    "status": "skipped",
                 })
                 self._sleep_until_next(cycle_start)
                 continue
 
             self.last_frame = frame
             frame_path = str(save_frame(frame, self.snapshot_dir))
-            append_jsonl(self.log_file, {
-                "event": "capture",
-                "cycle_id": cycle_id,
-                "capture_timestamp": capture_ts,
-                "frame_path": frame_path,
-                "status": "captured",
-            })
-            self._enqueue_for_analysis(frame_path, capture_ts, cycle_id)
+            self._enqueue_for_analysis(frame_path, capture_ts)
             self._sleep_until_next(cycle_start)
 
-    def _enqueue_for_analysis(self, frame_path: str, capture_ts: str, cycle_id: int) -> None:
+    def _enqueue_for_analysis(self, frame_path: str, capture_ts: str) -> None:
         with self.state_lock:
             should_start, _ = self.buffer.enqueue(frame_path)
             if not should_start:
                 append_jsonl(self.log_file, {
-                    "event": "analysis_enqueue",
-                    "cycle_id": cycle_id,
+                    "event": "analysis_enqueued_latest",
                     "frame_path": frame_path,
                     "capture_timestamp": capture_ts,
                     "status": "pending_overwrite",
                 })
                 return
-            threading.Thread(target=self._run_analysis, args=(frame_path, capture_ts, cycle_id), daemon=True).start()
+            threading.Thread(target=self._run_analysis, args=(frame_path, capture_ts), daemon=True).start()
 
-    def _run_analysis(self, frame_path: str, capture_ts: str, cycle_id: int) -> None:
+    def _run_analysis(self, frame_path: str, capture_ts: str) -> None:
         analysis_start = utc_timestamp()
         self.dashboard.set_status("analyzing")
         try:
@@ -151,11 +130,14 @@ class Coordinator:
             )
             parsed = validate_analysis_payload(payload, self.schema_path)
             self.last_result_at = time.time()
-            self.dashboard.set_result(timestamp=self.last_result_at, result=parsed, frame_path=frame_path)
-            self.dashboard.set_status("connected")
+            self.dashboard.set_result(
+                timestamp=self.last_result_at,
+                result=parsed,
+                frame_path=frame_path,
+            )
+            self.dashboard.set_status("idle")
             append_jsonl(self.log_file, {
                 "event": "analysis",
-                "cycle_id": cycle_id,
                 "frame_path": frame_path,
                 "capture_timestamp": capture_ts,
                 "analysis_start_timestamp": analysis_start,
@@ -167,7 +149,6 @@ class Coordinator:
             self.dashboard.set_error(str(exc))
             append_jsonl(self.log_file, {
                 "event": "analysis",
-                "cycle_id": cycle_id,
                 "frame_path": frame_path,
                 "capture_timestamp": capture_ts,
                 "analysis_start_timestamp": analysis_start,
@@ -180,11 +161,7 @@ class Coordinator:
                 next_frame = self.buffer.complete_and_pop_next()
 
             if next_frame:
-                threading.Thread(
-                    target=self._run_analysis,
-                    args=(next_frame, utc_timestamp(), cycle_id),
-                    daemon=True,
-                ).start()
+                threading.Thread(target=self._run_analysis, args=(next_frame, utc_timestamp()), daemon=True).start()
 
     def _sleep_until_next(self, cycle_start: float) -> None:
         elapsed = time.time() - cycle_start
