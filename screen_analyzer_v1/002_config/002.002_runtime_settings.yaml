@@ -1,0 +1,40 @@
+app:
+  name: "screen_analyzer_v1"
+  log_dir: "010_logs"
+  snapshot_dir: "008_outputs"
+
+camera:
+  source: 0
+  source_type: "auto"   # auto, device, url
+  startup_timeout_seconds: 30
+
+capture:
+  interval_seconds: 3
+  min_interval_seconds: 2
+  max_interval_seconds: 10
+  latest_frame_wins: true
+  max_in_flight_requests: 1
+  skip_similar_frames: true
+
+analysis:
+  model: "gpt-5.4"
+  use_structured_output: true
+  enable_web_search_second_pass: true
+  image_detail: "original"
+
+ui:
+  stale_after_seconds: 15
+  show_live_feed: true
+  show_status: true
+
+recovery:
+  reconnect_delay_seconds: 3
+  transient_outage_window_seconds: 30
+  recovery_target_seconds: 15
+
+crop:
+  enabled: false
+  x: 0
+  y: 0
+  w: 1280
+  h: 720
