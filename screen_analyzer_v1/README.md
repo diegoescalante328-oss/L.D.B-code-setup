@@ -46,6 +46,8 @@ Use `screen_analyzer_v1/` as the canonical runtime root.
 
 For a step-by-step checklist, see `007_docs/007.004_setup_and_run.md`.
 
+For iPad-to-laptop camera streaming setup, see `012_setup/012.001_ipad_laptop_stream_setup.md`.
+
 ## Configuration and schema locations
 - Runtime config: `002_config/002.002_runtime_settings.yaml`
 - Prompt config: `002_config/002.001_prompt_settings.yaml`
