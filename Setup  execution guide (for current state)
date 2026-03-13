@@ -1,0 +1,43 @@
+Setup / execution guide (for current state)
+Use screen_analyzer_v1/ as the runtime root.
+
+cd /workspace/L.D.B-code-setup/screen_analyzer_v1
+
+Create venv + install:
+
+Linux/macOS:
+
+python -m venv .venv
+
+source .venv/bin/activate
+
+pip install -r requirements.txt
+
+Set key:
+
+export OPENAI_API_KEY=...
+
+(Optional) Edit 002_config/002.002_runtime_settings.yaml
+
+confirm camera.source
+
+confirm capture.interval_seconds: 3
+
+Smoke camera:
+
+python 005_scripts/005.002_smoke_capture.py --source 0 --output-dir 008_outputs/smoke
+
+Single-frame API check:
+
+python 005_scripts/005.001_single_frame_analysis.py --image 008_outputs/smoke/<frame>.jpg
+
+Run full app:
+
+python 001_app/002_app_entrypoint.py
+
+Monitor artifacts:
+
+snapshots: 008_outputs/snapshots/
+
+logs: 010_logs/runtime.jsonl
+
