@@ -1,57 +1,19 @@
-# Screen Analyzer V1
+# Screen Analyzer V1 (workspace mirror)
 
-A local desktop app that captures frames from a camera source, analyzes meaningful screen changes with the OpenAI Responses API, and shows the latest structured result in a Tkinter dashboard.
+> This top-level README is **non-canonical** and kept brief to avoid documentation drift.
+> Use `screen_analyzer_v1/` as the runtime root and follow the canonical guide at:
+> `screen_analyzer_v1/README.md`
 
-## What V1 does
-- Opens a camera source from device index or URL
-- Captures frames every few seconds
-- Skips near-identical frames
-- Keeps at most one analysis request in flight
-- Uses latest-frame-wins buffering when analysis is busy
-- Shows status, latest result time, latest analysis text, and a live preview
-- Writes runtime logs to JSONL
-- Saves captured frames to `outputs/snapshots/`
-
-## Quick start
-Create a virtual environment and install dependencies:
+## Quick redirect
 
 ```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
+cd screen_analyzer_v1
+python 001_app/002_app_entrypoint.py
 ```
 
-Create `.env` from `.env.example` and set your API key.
-
-Run the app:
-
-```bash
-python -m app.main
-```
-
-## Useful commands
-Smoke test the camera:
-
-```bash
-python scripts/smoke_capture.py --source 0 --output-dir outputs/smoke
-```
-
-Analyze a single saved frame:
-
-```bash
-python scripts/single_frame_analysis.py --image outputs/smoke/your_image.jpg
-```
-
-## Repo map
-- `app/analysis/` model calls, schema validation, scene change logic
-- `app/camera/` camera helpers and stream source parsing
-- `app/storage/` logs and snapshot persistence
-- `app/ui/` Tkinter dashboard
-- `config/` runtime settings and prompt config
-- `schemas/` structured output schema
-- `scripts/` smoke tests and one-off utilities
-
-## Current V1 assumptions
-- Run from the repo root with `python -m app.main`
-- A local webcam is the easiest first camera source
-- Network streams can be used if OpenCV can open them
+Canonical script paths:
+- Smoke capture: `screen_analyzer_v1/005_scripts/005.002_smoke_capture.py`
+- Single-frame analysis: `screen_analyzer_v1/005_scripts/005.001_single_frame_analysis.py`
+- Runtime config: `screen_analyzer_v1/002_config/002.002_runtime_settings.yaml`
+- Prompt config: `screen_analyzer_v1/002_config/002.001_prompt_settings.yaml`
+- Output schema: `screen_analyzer_v1/003_schemas/003.001_screen_analysis_schema.json`

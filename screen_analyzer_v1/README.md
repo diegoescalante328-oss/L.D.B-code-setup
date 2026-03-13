@@ -31,7 +31,14 @@ Set environment variables:
 export OPENAI_API_KEY=your_key_here
 ```
 
-## Configuration
+## Runtime root
+Use `screen_analyzer_v1/` as the canonical runtime root. Run commands from this directory.
+
+## Configuration and schema locations
+- Runtime config: `002_config/002.002_runtime_settings.yaml`
+- Prompt config: `002_config/002.001_prompt_settings.yaml`
+- Structured output schema: `003_schemas/003.001_screen_analysis_schema.json`
+
 Edit `002_config/002.002_runtime_settings.yaml`.
 
 Key fields:
