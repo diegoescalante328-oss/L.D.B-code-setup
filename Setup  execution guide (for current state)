@@ -1,43 +1,42 @@
 Setup / execution guide (for current state)
-Use screen_analyzer_v1/ as the runtime root.
+Canonical runtime root: screen_analyzer_v1/
 
-cd /workspace/L.D.B-code-setup/screen_analyzer_v1
+From repository root:
+
+cd /workspace/L.D.B-code-setup
 
 Create venv + install:
 
-Linux/macOS:
-
-python -m venv .venv
-
-source .venv/bin/activate
-
-pip install -r requirements.txt
+python -m venv screen_analyzer_v1/.venv
+source screen_analyzer_v1/.venv/bin/activate
+pip install -r screen_analyzer_v1/requirements.txt
 
 Set key:
 
 export OPENAI_API_KEY=...
 
-(Optional) Edit 002_config/002.002_runtime_settings.yaml
+(Optional) Edit screen_analyzer_v1/002_config/002.002_runtime_settings.yaml
 
 confirm camera.source
-
 confirm capture.interval_seconds: 3
 
 Smoke camera:
 
-python 005_scripts/005.002_smoke_capture.py --source 0 --output-dir 008_outputs/smoke
+python screen_analyzer_v1/005_scripts/005.002_smoke_capture.py --source 0 --output-dir screen_analyzer_v1/008_outputs/smoke
 
 Single-frame API check:
 
-python 005_scripts/005.001_single_frame_analysis.py --image 008_outputs/smoke/<frame>.jpg
+python screen_analyzer_v1/005_scripts/005.001_single_frame_analysis.py --image screen_analyzer_v1/008_outputs/smoke/<frame>.jpg
 
 Run full app:
 
-python 001_app/002_app_entrypoint.py
+python screen_analyzer_v1/001_app/002_app_entrypoint.py
 
 Monitor artifacts:
 
-snapshots: 008_outputs/snapshots/
+snapshots: screen_analyzer_v1/008_outputs/snapshots/
+logs: screen_analyzer_v1/010_logs/runtime.jsonl
 
-logs: 010_logs/runtime.jsonl
+Legacy duplicate top-level folders are archived under:
 
+archive/deprecated_root_legacy/
