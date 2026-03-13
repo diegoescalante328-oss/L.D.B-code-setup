@@ -1,0 +1,9 @@
+camera:
+  source: 0
+capture:
+  interval_seconds: 3
+  skip_similar_frames: true
+analysis:
+  schema_path: schemas/screen_analysis.schema.json
+ui:
+  window_title: Screen Analyzer V1
