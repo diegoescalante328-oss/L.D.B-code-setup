@@ -1,19 +1,19 @@
-Setup / execution guide (for current state)
+Setup / execution guide (Windows PowerShell, current state)
 Use screen_analyzer_v1/ as the canonical runtime root.
 
 From repository root:
 
-cd /workspace/L.D.B-code-setup
+Set-Location .
 
 Create venv + install:
 
-python -m venv screen_analyzer_v1/.venv
-source screen_analyzer_v1/.venv/bin/activate
-pip install -r screen_analyzer_v1/requirements.txt
+python -m venv .\screen_analyzer_v1\.venv
+.\screen_analyzer_v1\.venv\Scripts\Activate.ps1
+pip install -r .\screen_analyzer_v1\requirements.txt
 
 Set key:
 
-export OPENAI_API_KEY=...
+$env:OPENAI_API_KEY="..."
 
 Config/schema locations:
 
@@ -30,19 +30,17 @@ confirm capture.interval_seconds: 3
 
 Smoke camera:
 
-python screen_analyzer_v1/005_scripts/005.002_smoke_capture.py --source 0 --output-dir screen_analyzer_v1/008_outputs/smoke
+python .\screen_analyzer_v1\005_scripts\005.002_smoke_capture.py --source 0 --output-dir .\screen_analyzer_v1\008_outputs\smoke
 
 Single-frame API check:
 
-python screen_analyzer_v1/005_scripts/005.001_single_frame_analysis.py --image screen_analyzer_v1/008_outputs/smoke/<frame>.jpg
+python .\screen_analyzer_v1\005_scripts\005.001_single_frame_analysis.py --image .\screen_analyzer_v1\008_outputs\smoke\<frame>.jpg
 
 Run full app:
 
-python screen_analyzer_v1/001_app/002_app_entrypoint.py
+python .\screen_analyzer_v1\001_app\002_app_entrypoint.py
 
 Monitor artifacts:
 
 snapshots: screen_analyzer_v1/008_outputs/snapshots/
 logs: screen_analyzer_v1/010_logs/runtime.jsonl
-
-logs: 010_logs/runtime.jsonl

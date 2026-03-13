@@ -12,29 +12,39 @@ Screen Analyzer V1 is a local desktop app that ingests an external camera feed o
 - JSONL runtime logs for capture/analysis outcomes
 - Camera source supports device index (`0`) or URL (`rtsp://...`, `http://...`)
 
-## Requirements
+## Requirements (Windows-first)
+- Windows 10/11
+- PowerShell 5.1+ (or PowerShell 7+)
 - Python 3.11+
 - OpenCV-compatible camera source (USB webcam index or URL stream)
 - `OPENAI_API_KEY` environment variable
 
-Install:
+## Setup from PowerShell
+Run all commands from `screen_analyzer_v1/`.
 
-```bash
+```powershell
 python -m venv .venv
-source .venv/bin/activate
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Set environment variables:
+Set environment variables in PowerShell:
 
-```bash
-export OPENAI_API_KEY=your_key_here
+```powershell
+$env:OPENAI_API_KEY = "your_key_here"
+```
+
+If activation fails with an execution policy error:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
 
 ## Runtime root
-Use `screen_analyzer_v1/` as the canonical runtime root. Run commands from this directory.
+Use `screen_analyzer_v1/` as the canonical runtime root.
 
-For a step-by-step setup and execution checklist, see `007_docs/007.004_setup_and_run.md`.
+For a step-by-step checklist, see `007_docs/007.004_setup_and_run.md`.
 
 ## Configuration and schema locations
 - Runtime config: `002_config/002.002_runtime_settings.yaml`
@@ -50,21 +60,21 @@ Key fields:
 - `analysis.enable_web_search_second_pass`: optional second pass path
 - `ui.stale_after_seconds`: marks status as stale when no fresh result
 
-## Run commands
+## Run commands (PowerShell)
 ### 1) Smoke capture (camera connectivity)
-```bash
-python 005_scripts/005.002_smoke_capture.py --source 0 --output-dir 008_outputs/smoke
+```powershell
+python .\005_scripts\005.002_smoke_capture.py --source 0 --output-dir .\008_outputs\smoke
 ```
 Press `s` to save a frame and `q` to quit.
 
 ### 2) Single-frame structured analysis
-```bash
-python 005_scripts/005.001_single_frame_analysis.py --image 008_outputs/smoke/<your_image>.jpg
+```powershell
+python .\005_scripts\005.001_single_frame_analysis.py --image .\008_outputs\smoke\<your_image>.jpg
 ```
 
 ### 3) Full desktop app
-```bash
-python 001_app/002_app_entrypoint.py
+```powershell
+python .\001_app\002_app_entrypoint.py
 ```
 
 ## Logs and outputs
