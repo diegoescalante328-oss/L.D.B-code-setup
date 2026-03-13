@@ -38,6 +38,8 @@ utc_timestamp = camera_utils["utc_timestamp"]
 
 @dataclass
 class LatestFrameBuffer:
+    """Single-slot queue implementing latest-frame-wins semantics."""
+
     analysis_in_flight: bool = False
     pending_frame_path: str | None = None
 
@@ -71,6 +73,9 @@ class Coordinator:
 
         self.capture_interval = float(capture_cfg["interval_seconds"])
         self.skip_similar = bool(capture_cfg.get("skip_similar_frames", True))
+        self.latest_frame_wins = capture_cfg.get("latest_frame_wins") is True
+        if not self.latest_frame_wins:
+            raise ValueError("Coordinator requires capture.latest_frame_wins == true for V1")
 
         self.snapshot_dir = Path(app_cfg["snapshot_dir"]) / "snapshots"
         self.log_file = Path(app_cfg["log_dir"]) / "runtime.jsonl"
