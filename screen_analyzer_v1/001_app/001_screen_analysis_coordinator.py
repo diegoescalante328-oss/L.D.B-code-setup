@@ -113,16 +113,43 @@ class Coordinator:
         self.camera.release()
 
     def _capture_loop(self) -> None:
+        cycle_id = 0
         while self.running:
+            cycle_id += 1
             cycle_start = time.time()
             capture_ts = utc_timestamp()
             ok, frame = self.camera.read()
             if not ok or frame is None:
+                append_jsonl(self.log_file, {
+                    "event": "camera_read_failed",
+                    "capture_timestamp": capture_ts,
+                    "status": "error",
+                    "cycle_id": cycle_id,
+                })
                 self.dashboard.set_error("camera read failure; reconnecting")
+
+                append_jsonl(self.log_file, {
+                    "event": "camera_reconnect_started",
+                    "capture_timestamp": capture_ts,
+                    "status": "attempting",
+                    "cycle_id": cycle_id,
+                })
                 reconnect_status = self.camera.reconnect()
                 if reconnect_status.connected:
+                    append_jsonl(self.log_file, {
+                        "event": "camera_reconnect_succeeded",
+                        "capture_timestamp": capture_ts,
+                        "status": "success",
+                        "cycle_id": cycle_id,
+                    })
                     self.dashboard.set_status("idle")
                 else:
+                    append_jsonl(self.log_file, {
+                        "event": "camera_reconnect_failed",
+                        "capture_timestamp": capture_ts,
+                        "status": "error",
+                        "cycle_id": cycle_id,
+                    })
                     self.dashboard.set_error(reconnect_status.message)
                 continue
 
@@ -141,6 +168,7 @@ class Coordinator:
                     "event": "capture_skip_similar",
                     "capture_timestamp": capture_ts,
                     "status": "skipped",
+                    "cycle_id": cycle_id,
                 })
                 self._sleep_until_next(cycle_start)
                 continue
