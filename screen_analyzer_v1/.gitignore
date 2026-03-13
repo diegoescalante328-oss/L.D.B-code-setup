@@ -1,7 +1,24 @@
+# Python
 __pycache__/
 *.pyc
-.venv/
+
+# Environment
 .env
+.venv/
+
+# Outputs
+008_outputs/snapshots/
+008_outputs/smoke/
 008_outputs/008.001_snapshots/*
 !008_outputs/008.001_snapshots/.gitkeep
-010_logs/runtime.jsonl
+
+# Logs
+010_logs/
+
+# OS/editor artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
