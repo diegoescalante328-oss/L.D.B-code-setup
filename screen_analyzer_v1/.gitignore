@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+008_outputs/008.001_snapshots/*
+!008_outputs/008.001_snapshots/.gitkeep
+010_logs/runtime.jsonl
