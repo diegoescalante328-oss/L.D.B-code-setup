@@ -41,21 +41,25 @@ class LatestFrameBuffer:
     """Single-slot queue implementing latest-frame-wins semantics."""
 
     analysis_in_flight: bool = False
-    pending_frame_path: str | None = None
+    pending_frame: dict[str, str] | None = None
 
-    def enqueue(self, frame_path: str) -> tuple[bool, str]:
+    def enqueue(self, frame_path: str, capture_ts: str) -> tuple[bool, dict[str, str]]:
+        payload = {
+            "frame_path": frame_path,
+            "capture_ts": capture_ts,
+        }
         if self.analysis_in_flight:
-            self.pending_frame_path = frame_path
-            return False, frame_path
+            self.pending_frame = payload
+            return False, payload
         self.analysis_in_flight = True
-        return True, frame_path
+        return True, payload
 
-    def complete_and_pop_next(self) -> str | None:
-        if self.pending_frame_path is None:
+    def complete_and_pop_next(self) -> dict[str, str] | None:
+        if self.pending_frame is None:
             self.analysis_in_flight = False
             return None
-        next_frame = self.pending_frame_path
-        self.pending_frame_path = None
+        next_frame = self.pending_frame
+        self.pending_frame = None
         self.analysis_in_flight = True
         return next_frame
 
@@ -157,16 +161,16 @@ class Coordinator:
 
     def _enqueue_for_analysis(self, frame_path: str, capture_ts: str) -> None:
         with self.state_lock:
-            should_start, _ = self.buffer.enqueue(frame_path)
+            should_start, payload = self.buffer.enqueue(frame_path, capture_ts)
             if not should_start:
                 append_jsonl(self.log_file, {
                     "event": "analysis_enqueued_latest",
-                    "frame_path": frame_path,
-                    "capture_timestamp": capture_ts,
+                    "frame_path": payload["frame_path"],
+                    "capture_timestamp": payload["capture_ts"],
                     "status": "pending_overwrite",
                 })
                 return
-            threading.Thread(target=self._run_analysis, args=(frame_path, capture_ts), daemon=True).start()
+            threading.Thread(target=self._run_analysis, args=(payload["frame_path"], payload["capture_ts"]), daemon=True).start()
 
     def _run_analysis(self, frame_path: str, capture_ts: str) -> None:
         analysis_start = utc_timestamp()
@@ -209,7 +213,11 @@ class Coordinator:
                 next_frame = self.buffer.complete_and_pop_next()
 
             if next_frame:
-                threading.Thread(target=self._run_analysis, args=(next_frame, utc_timestamp()), daemon=True).start()
+                threading.Thread(
+                    target=self._run_analysis,
+                    args=(next_frame["frame_path"], next_frame["capture_ts"]),
+                    daemon=True,
+                ).start()
 
     def _sleep_until_next(self, cycle_start: float) -> None:
         elapsed = time.time() - cycle_start
