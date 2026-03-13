@@ -1,25 +1,19 @@
-# Screen Analyzer V1 Repository
+# Screen Analyzer V1 (workspace mirror)
 
-`screen_analyzer_v1/` is the canonical and runnable implementation for V1.
+> This top-level README is **non-canonical** and kept brief to avoid documentation drift.
+> Use `screen_analyzer_v1/` as the runtime root and follow the canonical guide at:
+> `screen_analyzer_v1/README.md`
 
-## Canonical runtime root
-All app code, configs, tests, scripts, and docs used for current development live under:
-
-- `screen_analyzer_v1/`
-
-Run from that directory:
+## Quick redirect
 
 ```bash
 cd screen_analyzer_v1
+python 001_app/002_app_entrypoint.py
 ```
 
-Then follow:
-
-- `screen_analyzer_v1/README.md` for setup and run commands.
-
-## Legacy top-level layout
-Legacy duplicate top-level implementation folders were moved to:
-
-- `archive/deprecated_root_legacy/`
-
-They are retained only for historical reference and should not be used for runtime, tests, or documentation.
+Canonical script paths:
+- Smoke capture: `screen_analyzer_v1/005_scripts/005.002_smoke_capture.py`
+- Single-frame analysis: `screen_analyzer_v1/005_scripts/005.001_single_frame_analysis.py`
+- Runtime config: `screen_analyzer_v1/002_config/002.002_runtime_settings.yaml`
+- Prompt config: `screen_analyzer_v1/002_config/002.001_prompt_settings.yaml`
+- Output schema: `screen_analyzer_v1/003_schemas/003.001_screen_analysis_schema.json`

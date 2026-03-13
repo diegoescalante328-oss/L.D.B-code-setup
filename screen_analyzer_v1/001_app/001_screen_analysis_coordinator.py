@@ -85,6 +85,7 @@ class Coordinator:
             model=settings["analysis"].get("model", "gpt-5.4"),
             schema_path=schema_path,
             image_detail=settings["analysis"].get("image_detail", "original"),
+            enable_web_search_second_pass=settings["analysis"].get("enable_web_search_second_pass", True),
         )
         self.system_prompt = load_system_prompt()
 

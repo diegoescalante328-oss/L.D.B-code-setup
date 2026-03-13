@@ -1,5 +1,5 @@
 Setup / execution guide (for current state)
-Canonical runtime root: screen_analyzer_v1/
+Use screen_analyzer_v1/ as the canonical runtime root.
 
 From repository root:
 
@@ -15,7 +15,15 @@ Set key:
 
 export OPENAI_API_KEY=...
 
-(Optional) Edit screen_analyzer_v1/002_config/002.002_runtime_settings.yaml
+Config/schema locations:
+
+runtime config: 002_config/002.002_runtime_settings.yaml
+
+prompt config: 002_config/002.001_prompt_settings.yaml
+
+schema: 003_schemas/003.001_screen_analysis_schema.json
+
+(Optional) Edit 002_config/002.002_runtime_settings.yaml
 
 confirm camera.source
 confirm capture.interval_seconds: 3
@@ -37,6 +45,4 @@ Monitor artifacts:
 snapshots: screen_analyzer_v1/008_outputs/snapshots/
 logs: screen_analyzer_v1/010_logs/runtime.jsonl
 
-Legacy duplicate top-level folders are archived under:
-
-archive/deprecated_root_legacy/
+logs: 010_logs/runtime.jsonl
