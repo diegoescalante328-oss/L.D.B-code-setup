@@ -34,8 +34,7 @@ export OPENAI_API_KEY=your_key_here
 ## Runtime root
 Use `screen_analyzer_v1/` as the canonical runtime root. Run commands from this directory.
 
-Environment bootstrap guide: `011_env/011.001_virtual_environment_setup.md`.
-Step-by-step setup and execution checklist: `007_docs/007.004_setup_and_run.md`.
+For a step-by-step setup and execution checklist, see `007_docs/007.004_setup_and_run.md`.
 
 ## Configuration and schema locations
 - Runtime config: `002_config/002.002_runtime_settings.yaml`
