@@ -34,6 +34,8 @@ def load_settings(path: str | Path = "002_config/002.002_runtime_settings.yaml")
         raise ValueError("V1 interval range must stay within 2..10 seconds")
     if capture["max_in_flight_requests"] != 1:
         raise ValueError("V1 requires max_in_flight_requests == 1")
+    if capture.get("latest_frame_wins") is not True:
+        raise ValueError("V1 requires capture.latest_frame_wins == true")
     return data
 
 

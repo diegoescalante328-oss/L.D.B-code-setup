@@ -39,3 +39,21 @@ recovery: {reconnect_delay_seconds: 3}
 def test_settings_loads_defaults() -> None:
     data = load_settings("002_config/002.002_runtime_settings.yaml")
     assert data["capture"]["interval_seconds"] == 3
+
+
+@pytest.mark.parametrize("latest_frame_wins", [False, None, 0, "true"])
+def test_settings_require_latest_frame_wins_true(tmp_path, latest_frame_wins) -> None:
+    cfg = tmp_path / "settings.yaml"
+    cfg.write_text(
+        f"""
+app: {{name: test, log_dir: logs, snapshot_dir: outputs}}
+camera: {{source: 0, startup_timeout_seconds: 30}}
+capture: {{interval_seconds: 3, min_interval_seconds: 2, max_interval_seconds: 10, latest_frame_wins: {latest_frame_wins!r}, max_in_flight_requests: 1}}
+analysis: {{model: gpt-5.4}}
+ui: {{stale_after_seconds: 15}}
+recovery: {{reconnect_delay_seconds: 3}}
+""",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="latest_frame_wins"):
+        load_settings(cfg)
