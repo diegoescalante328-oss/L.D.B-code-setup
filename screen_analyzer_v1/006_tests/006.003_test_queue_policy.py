@@ -20,17 +20,17 @@ LatestFrameBuffer = _load_attr("001_app/001_screen_analysis_coordinator.py", "La
 def test_latest_frame_wins() -> None:
     buffer = LatestFrameBuffer()
 
-    should_start_1, frame_1 = buffer.enqueue("f1.jpg")
-    should_start_2, _ = buffer.enqueue("f2.jpg")
-    should_start_3, _ = buffer.enqueue("f3.jpg")
+    should_start_1, frame_1 = buffer.enqueue("f1.jpg", "t1")
+    should_start_2, _ = buffer.enqueue("f2.jpg", "t2")
+    should_start_3, _ = buffer.enqueue("f3.jpg", "t3")
 
     assert should_start_1 is True
-    assert frame_1 == "f1.jpg"
+    assert frame_1 == {"frame_path": "f1.jpg", "capture_ts": "t1"}
     assert should_start_2 is False
     assert should_start_3 is False
 
     next_frame = buffer.complete_and_pop_next()
-    assert next_frame == "f3.jpg"
+    assert next_frame == {"frame_path": "f3.jpg", "capture_ts": "t3"}
 
     final = buffer.complete_and_pop_next()
     assert final is None
